@@ -173,20 +173,28 @@ class DataSet:
             image_path, rect_path, label_index = tf.train.slice_input_producer([images, rects, labels], shuffle=train)
             
         batches = []
+        reader0 = tf.TextLineReader()
+        reader1 = tf.TextLineReader()
 
         for tid in range(self.num_preprocess_threads):
-            with open(tf.read_file(rect_path)) as rct:
-                rect_line = rct.split()
-                [x, y, h, w] = map(int, rect_line[0:3])
+            #with open(tf.read_file(rect_path)) as rct:
+            #    rect_line = rct.split()
+            #    [x, y, h, w] = map(int, rect_line[0:3])
+            key0, value0 = reader0.read(tf.read_file(rect_path))
+            record_defaults = [[1], [1], [1], [1], ['[1, 1]'], ['[2, 2]'], ['[3, 3]']]
+            x, y, h, w, _, _, _ = tf.decode_csv(value1, record_defaults=record_defaults)
+            
             image = tf.image.decode_jpeg(tf.read_file(image_path), channels=self.depth)
             image = tf.image.convert_image_dtype(image, dtype=tf.float32)
             image = tf.image.crop_to_bounding_box(image, x, y, h, w)
             
             if train:
                 image = self.distort_image(image, self.height, self.width, bbox=[], thread_id=tid)
-                with open(tf.read_file(tsf_path)) as tsf:
-                    tsf_line = tsf.split()
-                    transform = map(float, tsf_line)
+                key1, value1 = reader1.read(tf.read_file(rect_path))
+                record_defaults = [[.1], [.1], [.1], [.1], [.1], [.1]]
+                #with open(tf.read_file(tsf_path)) as tsf:
+                #    tsf_line = tsf.split()
+                #    transform = map(float, tsf_line)
                 batches.append([image, label_index, transform])
             else:
                 image = self.eval_image(image, self.height, self.width)
