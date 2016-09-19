@@ -37,7 +37,7 @@ TOWER_NAME = 'tower'
 
 class Network(object):
   """ResNet model."""
-  def __init__(self, hps, images, labels, train):
+  def __init__(self, hps, images, labels, transforms, train):
     """ResNet constructor.
 
     Args:
@@ -49,8 +49,9 @@ class Network(object):
     self.hps = hps
     self._images = images
     self.labels = labels
+    self.transforms = transforms
     self.train = train
-
+    
     self._extra_train_ops = []
 
   def inference(self):
@@ -81,6 +82,7 @@ class Network(object):
     # Split the batch of images and labels for towers.
     images_splits = tf.split(0, self.hps.num_gpus, self._images)
     labels_splits = tf.split(0, self.hps.num_gpus, self.labels)
+    transforms_splits = tf.split(0, self.hps.num_gpus, self.transforms)
 
     # Calculate the gradients for each model tower.
     tower_grads = []
@@ -88,10 +90,10 @@ class Network(object):
       with tf.device('/gpu:%d' % i):
         with tf.name_scope('%s_%d' % (TOWER_NAME, i)) as scope:
           # Forward Propagation
-          logits, predictions = self._build_model(images_splits[i])
+          logits, predictions, theta = self._build_model(images_splits[i])
 
           # Calculate loss
-          self._build_loss(logits, labels_splits[i])
+          self._build_loss(logits, theta, labels_splits[i], transforms_splits[i])
 
           # Reuse variables for the next tower.
           tf.get_variable_scope().reuse_variables()
@@ -135,35 +137,6 @@ class Network(object):
     return [1, stride, stride, 1]
 
   def _build_model(self, input_images):
-    """Build the core model within the graph."""
-    with tf.variable_scope('localise'):
-      x = self._conv('conv1_loc', input_images, 5, 3, 20, self._stride_arr(1), padding='VALID')
-      x = self._relu(x, self.hps.relu_leakiness)
-      x = tf.nn.max_pool(x, [1, 2, 2, 1], [1, 2, 2, 1], padding='SAME', name='pool1_loc')
-
-      x = self._conv('conv2_loc', x, 5, 3, 30, self._stride_arr(1), padding='VALID')
-      x = self._relu(x, self.hps.relu_leakiness)
-      x = tf.nn.max_pool(x, [1, 2, 2, 1], [1, 2, 2, 1], padding='SAME', name='pool2_loc')
-
-      x = self._conv('conv3_loc', x, 5, 3, 40, self._stride_arr(1), padding='VALID')
-      x = self._relu(x, self.hps.relu_leakiness)
-      x = tf.nn.max_pool(x, [1, 2, 2, 1], [1, 2, 2, 1], padding='SAME', name='pool3_loc')
-
-      x = self._conv('conv4_loc', x, 5, 3, 50, self._stride_arr(1), padding='VALID')
-      x = self._relu(x, self.hps.relu_leakiness)
-
-      x = self._fully_connected(x, 60)
-      theta = self._fully_connected(x, 6)
-
-    with tf.variable_scope('spatial_transform')
-      x = transformer(input_images, theta, (128, 128))
-
-    with tf.variable_scope('init'):
-      x = self._conv('init_conv', x, 7, 3, 64, self._stride_arr(1))
-      x = self._batch_norm('init_bn', x)
-      x = self._relu(x, self.hps.relu_leakiness)
-      x = tf.nn.max_pool(x, [1, 3, 3, 1], [1, 2, 2, 1], padding='SAME', name='init_pool')
-
     strides = [1, 2, 2, 2]
     activate_before_residual = [False, False, False, False]
     if self.hps.use_bottleneck:
@@ -181,6 +154,32 @@ class Network(object):
     
     assert (self.hps.num_layers - 2) % 9 == 0
     num_residual_units = [3, 4, 6, 3] 
+    
+    """Build the core model within the graph."""
+    with tf.variable_scope('localise'):
+      x = self._conv('conv1_loc', input_images, 5, 3, 20, self._stride_arr(1), padding='VALID')
+      x = self._relu(x, self.hps.relu_leakiness)
+      x = tf.nn.max_pool(x, [1, 2, 2, 1], [1, 2, 2, 1], padding='SAME', name='pool1_loc')
+
+      x = self._conv('conv2_loc', x, 5, 20, 30, self._stride_arr(1), padding='VALID')
+      x = self._relu(x, self.hps.relu_leakiness)
+      x = tf.nn.max_pool(x, [1, 2, 2, 1], [1, 2, 2, 1], padding='SAME', name='pool2_loc')
+
+      x = self._conv('conv3_loc', x, 5, 30, 40, self._stride_arr(1), padding='VALID')
+      x = self._relu(x, self.hps.relu_leakiness)
+
+      x = self._fully_connected(x, 60)
+      x = tf.tanh(x)
+      theta = self._fully_connected(x, 6)
+
+    with tf.variable_scope('spatial_transform')
+      x = transformer(input_images, theta, (128, 128))
+
+    with tf.variable_scope('init'):
+      x = self._conv('init_conv', x, 7, 3, 64, self._stride_arr(1))
+      x = self._batch_norm('init_bn', x)
+      x = self._relu(x, self.hps.relu_leakiness)
+      x = tf.nn.max_pool(x, [1, 3, 3, 1], [1, 2, 2, 1], padding='SAME', name='init_pool')
 
     with tf.variable_scope('unit_1_0'):
       x = res_func(x, filters[0], filters[1], self._stride_arr(strides[0]),
@@ -216,18 +215,23 @@ class Network(object):
       if self.train:
         logits = self._fully_connected(x, self.hps.num_classes)
         predictions = tf.nn.softmax(logits)
-        return logits, predictions
+        return logits, predictions, theta
       else:
         return x
 
 
-  def _build_loss(self, logits, input_labels):
+  def _build_loss(self, logits, theta, input_labels, transforms):
+    # Cross entropy loss
     sparse_labels = tf.reshape(input_labels, [self.split_batch_size, 1])
     indices = tf.reshape(tf.range(self.split_batch_size), [self.split_batch_size, 1])
     concated = tf.concat(1, [indices, sparse_labels])
     one_hot_labels = tf.sparse_to_dense(concated, [self.split_batch_size, self.hps.num_classes], 1.0, 0.0)
     xent = tf.nn.softmax_cross_entropy_with_logits(logits, one_hot_labels)
-    self.loss = tf.reduce_mean(xent, name='xent')
+    
+    # L2 loss
+    l2_theta = tf.nn.l2_loss(theta - transforms)
+    
+    self.loss = tf.reduce_mean(xent, name='xent') + tf.reduce_mean(l2_theta, name='l2')
     self.loss += self._decay()
 
   def _average_gradients(self, tower_grads):

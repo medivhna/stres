@@ -74,8 +74,8 @@ def train(hps):
                       delimeter=FLAGS.delimeter)
   #images, labels = train_set.inputs(train=True)
   #net = model.Network(hps, images, labels, train=True)
-  images, transf = train_set.inputs_transf(train=True)
-  net = model.Network(hps, images, transf, train=True)
+  images, labels, transforms = train_set.inputs2(train=True)
+  net = model.Network(hps, images, labels, transforms, train=True)
   net.inference()
 
   # Create a saver.

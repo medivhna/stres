@@ -152,35 +152,61 @@ class DataSet:
 
         return images, tf.reshape(label_index_batch, [self.batch_size])
 
-    def inputs_2(self, train=True):
+    def inputs2(self, train=True):
         fileLists = np.genfromtxt(self.list_path, 
                                  dtype=['S120', 'i8'], delimiter=self.delimeter)
         images = []
+        rects = []
         labels = []
+        if train:
+            transforms = []
         for image, label in fileLists:
             images.append(image)
+            rects.append(image(1:-4)+'.txt')
             labels.append(label)
+            if train:
+                transforms.append(image(1:-4)+'.tsf')
         
-        filename, label_index = tf.train.slice_input_producer([images, labels], shuffle=train)
+        if train:
+            image_path, rect_path, tsf_path, label_index = tf.train.slice_input_producer([images, rects, transforms, labels], shuffle=train)
+        else:
+            image_path, rect_path, label_index = tf.train.slice_input_producer([images, rects, labels], shuffle=train)
             
-        images_and_labels = []
+        batches = []
 
         for tid in range(self.num_preprocess_threads):
-            image = tf.image.decode_jpeg(tf.read_file(filename), channels=self.depth)
+            with open(rect_path) as rct:
+                rect_line = rct.split()
+                [x, y, h, w] = map(int, rect_line[0:3])
+            image = tf.image.decode_jpeg(tf.read_file(image_name), channels=self.depth)
             image = tf.image.convert_image_dtype(image, dtype=tf.float32)
+            image = tf.image.crop_to_bounding_box(image, x, y, h, w)
             
             if train:
                 image = self.distort_image(image, self.height, self.width, bbox=[], thread_id=tid)
+                with open(tsf_path) as tsf:
+                    tsf_line = tsf.split()
+                    transform = map(float, tsf_line)
+                batches.append([image, label_index, transform])
             else:
                 image = self.eval_image(image, self.height, self.width)
+                batches.append([image, label_index])
+        
+        if train:
+            images, label_index_batch, transforms = tf.train.batch_join(
+                batches,
+                batch_size=self.batch_size,
+                capacity=2 * self.num_preprocess_threads * self.batch_size)
 
-            images_and_labels.append([image, label_index])
+            images = tf.reshape(images, shape=[self.batch_size, self.height, self.width, self.depth])
 
-        images, label_index_batch = tf.train.batch_join(
-            images_and_labels,
-            batch_size=self.batch_size,
-            capacity=2 * self.num_preprocess_threads * self.batch_size)
+            return images, tf.reshape(label_index_batch, [self.batch_size]), tf.reshape(transforms, [self.batch_size, 6])
+        else:
+            images, label_index_batch = tf.train.batch_join(
+                batches,
+                batch_size=self.batch_size,
+                capacity=2 * self.num_preprocess_threads * self.batch_size)
 
-        images = tf.reshape(images, shape=[self.batch_size, self.height, self.width, self.depth])
+            images = tf.reshape(images, shape=[self.batch_size, self.height, self.width, self.depth])
 
-        return images, tf.reshape(label_index_batch, [self.batch_size])
+            return images, tf.reshape(label_index_batch, [self.batch_size])
