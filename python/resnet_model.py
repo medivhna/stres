@@ -172,7 +172,7 @@ class Network(object):
       x = tf.tanh(x)
       theta = self._fully_connected(x, 6)
 
-    with tf.variable_scope('spatial_transform')
+    with tf.variable_scope('spatial_transform'):
       x = transformer(input_images, theta, (128, 128))
 
     with tf.variable_scope('init'):
