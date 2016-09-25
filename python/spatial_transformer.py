@@ -142,10 +142,10 @@ def transformer(U, theta, out_size, name='SpatialTransformer', **kwargs):
 
     def _transform(theta, input_dim, out_size):
         with tf.variable_scope('_transform'):
-            num_batch = tf.shape(input_dim)[0]
-            height = tf.shape(input_dim)[1]
-            width = tf.shape(input_dim)[2]
-            num_channels = tf.shape(input_dim)[3]
+            num_batch = input_dim.get_shape()[0].value
+            height = input_dim.get_shape()[1].value
+            width = input_dim.get_shape()[2].value
+            num_channels = input_dim.get_shape()[3].value
             theta = tf.reshape(theta, (-1, 2, 3))
             theta = tf.cast(theta, 'float32')
 
@@ -157,9 +157,8 @@ def transformer(U, theta, out_size, name='SpatialTransformer', **kwargs):
             grid = _meshgrid(out_height, out_width)
             grid = tf.expand_dims(grid, 0)
             grid = tf.reshape(grid, [-1])
-            grid = tf.tile(grid, tf.pack([num_batch]))
-            grid = tf.reshape(grid, tf.pack([num_batch, 3, -1]))
-
+            grid = tf.tile(grid, [num_batch])
+            grid = tf.reshape(grid, [num_batch, 3, -1])
             # Transform A x (x_t, y_t, 1)^T -> (x_s, y_s)
             T_g = tf.batch_matmul(theta, grid)
             x_s = tf.slice(T_g, [0, 0, 0], [-1, 1, -1])
@@ -172,7 +171,7 @@ def transformer(U, theta, out_size, name='SpatialTransformer', **kwargs):
                 out_size)
 
             output = tf.reshape(
-                input_transformed, tf.pack([num_batch, out_height, out_width, num_channels]))
+                input_transformed, [num_batch, out_height, out_width, num_channels])
             return output
 
     with tf.variable_scope(name):

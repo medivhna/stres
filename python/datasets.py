@@ -162,11 +162,11 @@ class DataSet:
             transforms = []
         for image, label in fileLists:
             images.append(image)
-            rects.append(image[1:-4]+'.txt')
+            rects.append(image[0:-4]+'.txt')
             labels.append(label)
             if train:
-                transforms.append(image[1:-4]+'.tsf')
-        
+                transforms.append(image[0:-4]+'.tsf')
+            print(rects)
         if train:
             image_path, rect_path, tsf_path, label_index = tf.train.slice_input_producer([images, rects, transforms, labels], shuffle=train)
         else:
@@ -177,24 +177,27 @@ class DataSet:
         reader1 = tf.TextLineReader()
 
         for tid in range(self.num_preprocess_threads):
-            #with open(tf.read_file(rect_path)) as rct:
+            #with open(rect_path) as rct:
             #    rect_line = rct.split()
             #    [x, y, h, w] = map(int, rect_line[0:3])
-            key0, value0 = reader0.read(tf.read_file(rect_path))
-            record_defaults = [[1], [1], [1], [1], ['[1, 1]'], ['[2, 2]'], ['[3, 3]']]
-            x, y, h, w, _, _, _ = tf.decode_csv(value1, record_defaults=record_defaults)
-            
+            #rect_name = tf.train.string_input_producer(rect_path, shuffle=False) 
+            _, value0 = reader0.read(rect_path)
+            record_defaults = [[1], [1], [1], [1], [''], [''], ['']]
+            x, y, h, w, _, _, _ = tf.decode_csv(value0, record_defaults=record_defaults, field_delim='\t')
+
             image = tf.image.decode_jpeg(tf.read_file(image_path), channels=self.depth)
             image = tf.image.convert_image_dtype(image, dtype=tf.float32)
             image = tf.image.crop_to_bounding_box(image, x, y, h, w)
             
             if train:
                 image = self.distort_image(image, self.height, self.width, bbox=[], thread_id=tid)
-                key1, value1 = reader1.read(tf.read_file(rect_path))
+                _, value1 = reader1.read(tsf_path)
                 record_defaults = [[.1], [.1], [.1], [.1], [.1], [.1]]
-                #with open(tf.read_file(tsf_path)) as tsf:
-                #    tsf_line = tsf.split()
-                #    transform = map(float, tsf_line)
+                t1, t2, t3, t4, t5, t6 = tf.decode_csv(value1, record_defaults=record_defaults, field_delim=' ')
+                transform = tf.pack([t1, t2, t3, t4, t5, t6])
+            #    with open(tsf_path) as tsf:
+            #        tsf_line = tsf.split()
+            #        transform = map(float, tsf_line)
                 batches.append([image, label_index, transform])
             else:
                 image = self.eval_image(image, self.height, self.width)

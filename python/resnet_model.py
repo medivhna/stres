@@ -24,6 +24,7 @@ from collections import namedtuple
 
 import numpy as np
 import tensorflow as tf
+from spatial_transformer import transformer
 
 from tensorflow.python.training import moving_averages
 
@@ -170,11 +171,10 @@ class Network(object):
 
       x = self._fully_connected(x, 60)
       x = tf.tanh(x)
-      theta = self._fully_connected(x, 6)
 
     with tf.variable_scope('spatial_transform'):
+      theta = self._fully_connected(x, 6)
       x = transformer(input_images, theta, (128, 128))
-
     with tf.variable_scope('init'):
       x = self._conv('init_conv', x, 7, 3, 64, self._stride_arr(1))
       x = self._batch_norm('init_bn', x)
