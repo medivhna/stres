@@ -186,7 +186,7 @@ class DataSet:
         for tid in range(self.num_preprocess_threads):
             image = tf.image.decode_jpeg(tf.read_file(image_path), channels=self.depth)
             image = tf.image.convert_image_dtype(image, dtype=tf.float32)
-            image = tf.image.crop_to_bounding_box(image, x, h, y, w)
+            image = tf.image.crop_to_bounding_box(image, x, y, h, w)
             
             if train:
                 image = self.distort_image(image, self.height, self.width, bbox=[], thread_id=tid)
