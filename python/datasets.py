@@ -213,7 +213,8 @@ class DataSet:
             images = tf.reshape(images, shape=[self.batch_size, self.height, self.width, self.depth])
 
             return images, tf.reshape(label_index_batch, [self.batch_size])
-    def input22(self, train=True):
+
+    def inputs22(self, train=True):
         line_queue = tf.train.string_input_producer([self.list_path])
         reader = tf.TextLineReader()
         _, value = reader.read(line_queue)
@@ -255,6 +256,5 @@ class DataSet:
 
             images = tf.reshape(images, shape=[self.batch_size, self.height, self.width, self.depth])
         
-        print(batches)
-        
+            return images, tf.reshape(label_index_batch, [self.batch_size])
         
