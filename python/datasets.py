@@ -166,7 +166,6 @@ class DataSet:
             labels.append(label)
             if train:
                 transforms.append(image[0:-4]+'.tsf')
-            print(rects)
         if train:
             image_path, rect_path, tsf_path, label_index = tf.train.slice_input_producer(
                                                            [images, rects, transforms, labels], 
