@@ -154,48 +154,36 @@ class DataSet:
 
     def inputs2(self, train=True):
         fileLists = np.genfromtxt(self.list_path, 
-                                 dtype=['S120', 'i8'], delimiter=self.delimeter)
+                                 dtype=['S120', 'i8', 'i8', 'i8', 'i8', 'f8', 
+                                        'f8', 'f8', 'f8', 'f8', 'f8'], delimiter=self.delimeter)
         images = []
         rects = []
         labels = []
         if train:
             transforms = []
-        for image, label in fileLists:
+        for image, label, x, y, h, w, t1, t2, t3, t4, t5, t6 in fileLists:
             images.append(image)
-            rects.append(image[0:-4]+'.txt')
             labels.append(label)
+            rects.append([x, y, h, w])
             if train:
-                transforms.append(image[0:-4]+'.tsf')
+                transforms.append([t1, t2, t3, t4, t5, t6])
         if train:
-            image_path, rect_path, tsf_path, label_index = tf.train.slice_input_producer(
+            image_path, rect_box, tsf_params, label_index = tf.train.slice_input_producer(
                                                            [images, rects, transforms, labels], 
                                                            shuffle=train)           
         else:
-            image_path, rect_path, label_index = tf.train.slice_input_producer([images, rects, labels], shuffle=train)
+            image_path, rect_box, label_index = tf.train.slice_input_producer([images, rects, labels], shuffle=train)
             
         batches = []
-        reader0 = tf.TextLineReader()
-        reader1 = tf.TextLineReader()
 
         for tid in range(self.num_preprocess_threads):
-            _, path0 = tf.train.string_input_producer([rect_path], num_epochs=1)   
-            _, value0 = reader0.read(path0) # Fail: 'ReaderRead' Op requires l-value input
-            
-            record_defaults = [[1], [1], [1], [1], [''], [''], ['']]
-            x, y, h, w, _, _, _ = tf.decode_csv(value0, record_defaults=record_defaults, field_delim='\t')
-
             image = tf.image.decode_jpeg(tf.read_file(image_path), channels=self.depth)
             image = tf.image.convert_image_dtype(image, dtype=tf.float32)
             image = tf.image.crop_to_bounding_box(image, x, y, h, w)
             
             if train:
                 image = self.distort_image(image, self.height, self.width, bbox=[], thread_id=tid)
-                _, path1 = tf.train.string_input_producer([tsf_path], num_epochs=1)   
-                _, value1 = reader0.read(path1) # Fail: 'ReaderRead' Op requires l-value input
-                record_defaults = [[.1], [.1], [.1], [.1], [.1], [.1]]
-                t1, t2, t3, t4, t5, t6 = tf.decode_csv(value1, record_defaults=record_defaults, field_delim=' ')
-                transform = tf.pack([t1, t2, t3, t4, t5, t6])
-                batches.append([image, label_index, transform])
+                batches.append([image, label_index, tsf_params])
             else:
                 image = self.eval_image(image, self.height, self.width)
                 batches.append([image, label_index])
