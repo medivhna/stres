@@ -158,7 +158,10 @@ class DataSet:
                                          'f4', 'f4', 'f4', 'f4', 'f4', 'f4'], 
                                   delimiter=self.delimeter)
         images = []
-        rects = []
+        xs = []
+        hs = []
+        ys = []
+        ws = []
         labels = []
         if train:
             transforms = []
