@@ -180,7 +180,7 @@ class DataSet:
         for tid in range(self.num_preprocess_threads):
             image = tf.image.decode_jpeg(tf.read_file(image_path), channels=self.depth)
             image = tf.image.convert_image_dtype(image, dtype=tf.float32)
-            x, h, y, w = rect_box
+            x, h, y, w = tf.unpack(rect_box)
             image = tf.image.crop_to_bounding_box(image, x, h, y, w)
             
             if train:
