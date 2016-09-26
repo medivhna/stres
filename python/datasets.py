@@ -165,22 +165,24 @@ class DataSet:
         for image, label, x, h, y, w, t1, t2, t3, t4, t5, t6 in fileLists:
             images.append(image)
             labels.append(label)
-            rects.append([x, h, y, w])
+            xs.append(x)
+            hs.append(h)
+            ys.append(y)
+            ws.append(w)
             if train:
                 transforms.append([t1, t2, t3, t4, t5, t6])
         if train:
-            image_path, rect_box, tsf_params, label_index = tf.train.slice_input_producer(
-                                                           [images, rects, transforms, labels], 
-                                                           shuffle=train)           
+            image_path, x, h, y, w, tsf_params, label_index = tf.train.slice_input_producer(
+                                                              [images, xs, hs, ys, ws, transforms, labels], 
+                                                              shuffle=train)           
         else:
-            image_path, rect_box, label_index = tf.train.slice_input_producer([images, rects, labels], shuffle=train)
+            image_path, x, h, y, w, label_index = tf.train.slice_input_producer([images, xs, hs, ys, ws, labels], shuffle=train)
             
         batches = []
 
         for tid in range(self.num_preprocess_threads):
             image = tf.image.decode_jpeg(tf.read_file(image_path), channels=self.depth)
             image = tf.image.convert_image_dtype(image, dtype=tf.float32)
-            x, h, y, w = tf.unpack(rect_box)
             image = tf.image.crop_to_bounding_box(image, x, h, y, w)
             
             if train:
