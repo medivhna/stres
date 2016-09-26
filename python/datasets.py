@@ -179,7 +179,7 @@ class DataSet:
         reader1 = tf.TextLineReader()
 
         for tid in range(self.num_preprocess_threads):
-            _, path0 = tf.train.slice_input_producer([rect_path], num_epochs=1)   
+            _, path0 = tf.train.string_input_producer([rect_path], num_epochs=1)   
             _, value0 = reader0.read(path0) # Fail: 'ReaderRead' Op requires l-value input
             
             record_defaults = [[1], [1], [1], [1], [''], [''], ['']]
@@ -191,7 +191,7 @@ class DataSet:
             
             if train:
                 image = self.distort_image(image, self.height, self.width, bbox=[], thread_id=tid)
-                _, path1 = tf.train.slice_input_producer([tsf_path], num_epochs=1)   
+                _, path1 = tf.train.string_input_producer([tsf_path], num_epochs=1)   
                 _, value1 = reader0.read(path1) # Fail: 'ReaderRead' Op requires l-value input
                 record_defaults = [[.1], [.1], [.1], [.1], [.1], [.1]]
                 t1, t2, t3, t4, t5, t6 = tf.decode_csv(value1, record_defaults=record_defaults, field_delim=' ')
