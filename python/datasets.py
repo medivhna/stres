@@ -154,8 +154,9 @@ class DataSet:
 
     def inputs2(self, train=True):
         fileLists = np.genfromtxt(self.list_path, 
-                                 dtype=['S120', 'i8', 'i8', 'i8', 'i8', 'f8', 
-                                        'f8', 'f8', 'f8', 'f8', 'f8'], delimiter=self.delimeter)
+                                  dtype=['S120', 'i8', 'i8', 'i8', 'i8', 'i8', 
+                                         'f8','f8', 'f8', 'f8', 'f8', 'f8'], 
+                                  delimiter=self.delimeter)
         images = []
         rects = []
         labels = []
