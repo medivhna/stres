@@ -174,12 +174,12 @@ class DataSet:
             ws.append(w)
             if train:
                 transforms.append([t1, t2, t3, t4, t5, t6])
-        if train:
-            image_path, x, h, y, w, tsf_params, label_index = tf.train.slice_input_producer(
-                                                              [images, xs, hs, ys, ws, transforms, labels], 
-                                                              shuffle=train)           
-        else:
-            image_path, x, h, y, w, label_index = tf.train.slice_input_producer([images, xs, hs, ys, ws, labels], shuffle=train)
+        #if train:
+        #    image_path, x, h, y, w, tsf_params, label_index = tf.train.slice_input_producer(
+        #                                                      [images, xs, hs, ys, ws, transforms, labels], 
+        #                                                      shuffle=train)           
+        #else:
+        #    image_path, x, h, y, w, label_index = tf.train.slice_input_producer([images, xs, hs, ys, ws, labels], shuffle=train)
             
         batches = []
 
@@ -213,3 +213,14 @@ class DataSet:
             images = tf.reshape(images, shape=[self.batch_size, self.height, self.width, self.depth])
 
             return images, tf.reshape(label_index_batch, [self.batch_size])
+    def input22(self, train=True):
+        line_queue = tf.train.string_input_producer([self.list_path])
+        reader = tf.TextLineReader()
+        _, value = reader.read(line_queue)
+        
+        record_defaults = [[""], [0], [0], [0], [0], [0],
+                           [.1], [.1],[.1],[.1],[.1],[.1]]
+        filenames, labels, x, h, y, w, t1, t2, t3, t4, t5, t6 = 
+                          tf.decode_csv(value, record_defaults=record_defaults)
+        
+        
