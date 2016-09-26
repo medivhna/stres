@@ -5,7 +5,7 @@ python python/resnet_train.py \
 --lr_decay_epoches=4.0 \
 --num_examples=4600023 \
 --num_classes=93644 \
---train_list_path='/home/wangguanshuo/lists/cropped/stn_cropped.npy' \
+--train_list_path='/home/wangguanshuo/lists/cropped/stn_cropped_with_params.npy' \
 --train_dir='/home/wangguanshuo/tf/model/stres' \
 --summary_dir='/home/wangguanshuo/tf/summary/stres' \
 
