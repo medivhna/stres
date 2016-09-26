@@ -222,7 +222,7 @@ class DataSet:
         filenames, labels, x, h, y, w, t1, t2, t3, t4, t5, t6 = tf.decode_csv(value, 
                                                                               record_defaults=record_defaults,
                                                                               field_delim=' ')    
-    
+        batches = []    
         for tid in range(self.num_preprocess_threads):
             image = tf.image.decode_jpeg(tf.read_file(filenames), channels=self.depth)
             image = tf.image.convert_image_dtype(image, dtype=tf.float32)
@@ -235,6 +235,25 @@ class DataSet:
             else:
                 image = self.eval_image(image, self.height, self.width)
                 batches.append([image, labels])
+                
+        if train:
+            images, label_index_batch, transforms = tf.train.shuffle_batch_join(
+                batches,
+                batch_size=self.batch_size,
+                capacity=2 * self.num_preprocess_threads * self.batch_size,
+                min_after_dequeue = 2 * self.batch_size)
+
+            images = tf.reshape(images, shape=[self.batch_size, self.height, self.width, self.depth])
+
+            return images, tf.reshape(label_index_batch, [self.batch_size]), tf.reshape(transforms, [self.batch_size, 6])
+        else:
+            images, label_index_batch = tf.train.shuffle_batch_join(
+                batches,
+                batch_size=self.batch_size,
+                capacity=2 * self.num_preprocess_threads * self.batch_size,
+                min_after_dequeue = 2 * self.batch_size)
+
+            images = tf.reshape(images, shape=[self.batch_size, self.height, self.width, self.depth])
         
         print(batches)
         
